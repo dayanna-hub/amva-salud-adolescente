@@ -1,13 +1,26 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "AMVA Salud Adolescente",
   description: "Gestión y análisis de morbilidad y mortalidad adolescente",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+  const isLogin = pathname === "/login" || pathname.startsWith("/login");
+
+  if (isLogin) {
+    return (
+      <html lang="es">
+        <body>{children}</body>
+      </html>
+    );
+  }
+
   return (
     <html lang="es">
       <body>
