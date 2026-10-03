@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN_MUNICIPAL
+  DIGITADOR
+  ANALISTA
+}
+
+enum EventType {
+  MORBIDITY
+  MORTALITY
+}
+
+enum SubmissionSourceType {
+  INDIVIDUAL_CASES
+  MONTHLY_CONSOLIDATED
+}
+
+enum SubmissionInputMethod {
+  FORM
+  CSV
+  XLSX
+}
+
+enum SubmissionStatus {
+  DRAFT
+  IN_REVIEW
+  VALIDATED
+  CLOSED
+}
+
+enum Sex {
+  FEMALE
+  MALE
+  NOT_REPORTED
+}
+
+enum Zone {
+  URBAN
+  RURAL
+}
+
+enum AdolescentPhase {
+  EARLY_10_13
+  MIDDLE_14_17
+  LATE_18_19
+}
+
+enum AffiliationRegime {
+  UNAFFILIATED
+  SUBSIDIZED
+  CONTRIBUTORY
+}
+
+model Municipality {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  name             String       @unique
+  active           Boolean      @default(true)
+  users            User[]
+  submissions      Submission[]
+  populationRows   Population[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+model User {
+  id               String       @id @default(cuid())
+  name             String
+  email            String       @unique
+  role             UserRole
+  municipalityId   String?
+  municipality     Municipality? @relation(fields: [municipalityId], references: [id])
+  active           Boolean      @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  createdCases     CaseRecord[] @relation("CreatedCases")
+  createdSubmissions Submission[] @relation("CreatedSubmissions")
+  auditEntries     AuditLog[]
+}
+
+model Submission {
+  id               String                    @id @default(cuid())
+  municipalityId   String
+  municipality     Municipality              @relation(fields: [municipalityId], references: [id])
+  year             Int
+  month            Int
+  eventType        EventType
+  sourceType       SubmissionSourceType
+  inputMethod      SubmissionInputMethod
+  status           SubmissionStatus          @default(DRAFT)
+  createdById      String?
+  createdBy        User?                     @relation("CreatedSubmissions", fields: [createdById], references: [id])
+  notes            String?
+  closedAt         DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  cases            CaseRecord[]
+  consolidatedRows ConsolidatedRow[]
+
+  @@unique([municipalityId, year, month, eventType])
+  @@index([year, month, eventType, status])
+}
+
+model CaseRecord {
+  id                    String            @id @default(cuid())
+  submissionId          String
+  submission            Submission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  eventDate              DateTime
+  municipalityIdSnapshot String
+  age                    Int
+  phase                  AdolescentPhase
+  sex                    Sex
+  zone                   Zone?
+  diagnosis              String?
+  cie10Code              String?
+  causeOfDeath           String?
+  deathCie10Code         String?
+  educationLevel         String?
+  stratum                Int?
+  ethnicity              String?
+  affiliationRegime      AffiliationRegime?
+  sourceFingerprint      String?
+  createdById            String?
+  createdBy              User?             @relation("CreatedCases", fields: [createdById], references: [id])
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@unique([submissionId, sourceFingerprint])
+  @@index([submissionId, sex, phase])
+  @@index([cie10Code])
+}
+
+model ConsolidatedRow {
+  id                    String             @id @default(cuid())
+  submissionId          String
+  submission            Submission         @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  age                    Int?
+  phase                  AdolescentPhase?
+  sex                    Sex?
+  zone                   Zone?
+  diagnosis              String?
+  cie10Code              String?
+  causeOfDeath           String?
+  deathCie10Code         String?
+  educationLevel         String?
+  stratum                Int?
+  ethnicity              String?
+  affiliationRegime      AffiliationRegime?
+  caseCount              Int
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([submissionId, sex, phase])
+  @@index([cie10Code])
+}
+
+model Population {
+  id               String       @id @default(cuid())
+  municipalityId   String
+  municipality     Municipality @relation(fields: [municipalityId], references: [id])
+  year             Int
+  age              Int
+  sex              Sex
+  populationCount  Int
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([municipalityId, year, age, sex])
+  @@index([year, municipalityId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  entity      String
+  entityId    String?
+  beforeData  Json?
+  afterData   Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+}

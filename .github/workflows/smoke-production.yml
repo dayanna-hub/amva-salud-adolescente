@@ -1,0 +1,44 @@
+name: Production smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel production deployment
+        run: sleep 60
+
+      - name: Check application health
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://amva-salud-adolescente.vercel.app/api/health"
+          response="$(curl --silent --show-error --max-time 20 --write-out $'\nHTTP_STATUS:%{http_code}' "$URL")"
+          echo "$response"
+          body="$(printf '%s\n' "$response" | sed '/HTTP_STATUS:/d')"
+          status="$(printf '%s\n' "$response" | sed -n 's/^HTTP_STATUS://p')"
+          test "$status" = "200"
+          echo "$body" | grep -q '"ok":true'
+          echo "$body" | grep -q '"database":"connected"'
+          echo "$body" | grep -q '"schema":"ready"'
+          echo "$body" | grep -q '"neon_project_id":"noisy-bonus-40050798"'
+          echo "$body" | grep -q '"neon_branch_id":"br-divine-lab-b4in309p"'
+
+      - name: Check production dashboard data
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://amva-salud-adolescente.vercel.app/api/dashboard/summary?year=2026"
+          response="$(curl --silent --show-error --max-time 20 --write-out $'\nHTTP_STATUS:%{http_code}' "$URL")"
+          echo "$response"
+          body="$(printf '%s\n' "$response" | sed '/HTTP_STATUS:/d')"
+          status="$(printf '%s\n' "$response" | sed -n 's/^HTTP_STATUS://p')"
+          test "$status" = "200"
+          echo "$body" | grep -q '"ok":true'
+          echo "$body" | grep -Eq '"morbidity":[1-9][0-9]*'
+          echo "$body" | grep -Eq '"mortality":[1-9][0-9]*'
+          echo "$body" | grep -Eq '"population":[1-9][0-9]*'

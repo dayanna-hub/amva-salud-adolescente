@@ -1,0 +1,2 @@
+municipio,periodo,tipo_evento,edad,sexo,zona,diagnostico,codigo_cie10,causa_defuncion,codigo_cie10_defuncion,nivel_educativo,estrato,etnia,regimen_afiliacion,numero_casos
+Caldas,2026-10,MORBILIDAD,15,MUJER,URBANA,Dengue,A90,,,Secundaria,2,,SUBSIDIADO,23
