@@ -11,11 +11,12 @@ export function PopulationSummary() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setError(null);
+    let cancelled = false;
     fetch(`/api/population?year=${year}`)
       .then(async (r) => { const json = await r.json(); if (!r.ok) throw new Error(json.error ?? "Error consultando población"); return json; })
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "No fue posible consultar población."));
+      .then((json) => { if (!cancelled) { setData(json); setError(null); } })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "No fue posible consultar población."); });
+    return () => { cancelled = true; };
   }, [year]);
 
   return <>
