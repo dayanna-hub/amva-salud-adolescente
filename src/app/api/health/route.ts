@@ -1,28 +1,16 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-type DeepHealthRow = {
+type HealthRow = {
   database_name: string;
-  database_user: string;
-  neon_project_id: string | null;
-  neon_branch_id: string | null;
-  neon_endpoint_id: string | null;
 };
 
 export async function GET() {
-  let identity: DeepHealthRow | null = null;
-
   try {
-    const rows = await prisma.$queryRaw<DeepHealthRow[]>`
-      SELECT
-        current_database() AS database_name,
-        current_user AS database_user,
-        current_setting('neon.project_id', true) AS neon_project_id,
-        current_setting('neon.branch_id', true) AS neon_branch_id,
-        current_setting('neon.endpoint_id', true) AS neon_endpoint_id
+    const rows = await prisma.$queryRaw<HealthRow[]>`
+      SELECT current_database() AS database_name
     `;
-    identity = rows[0] ?? null;
+    const ok = rows.length > 0;
 
     const [municipalityCount, submissionCount, populationCount] = await Promise.all([
       prisma.municipality.count(),
@@ -32,9 +20,8 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      database: "connected",
+      database: ok ? "connected" : "error",
       schema: "ready",
-      identity,
       counts: {
         municipalities: municipalityCount,
         submissions: submissionCount,
@@ -43,28 +30,13 @@ export async function GET() {
     });
   } catch (error) {
     console.error(error);
-
-    const known = error instanceof Prisma.PrismaClientKnownRequestError
-      ? {
-          code: error.code,
-          meta: error.meta
-            ? {
-                modelName: typeof error.meta.modelName === "string" ? error.meta.modelName : null,
-                table: typeof error.meta.table === "string" ? error.meta.table : null,
-                column: typeof error.meta.column === "string" ? error.meta.column : null,
-              }
-            : null,
-        }
-      : null;
-
+    // No exponer metadatos internos de Prisma al cliente
     return NextResponse.json(
       {
         ok: false,
-        database: identity ? "connected" : "error",
+        database: "error",
         schema: "error",
-        identity,
-        error: error instanceof Error ? error.name : "UnknownError",
-        prisma: known,
+        error: "DB_CONNECTION_ERROR",
       },
       { status: 503 },
     );
