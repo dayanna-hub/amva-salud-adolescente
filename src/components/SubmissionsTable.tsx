@@ -29,7 +29,14 @@ export function SubmissionsTable() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/submissions")
+      .then((r) => r.json())
+      .then((json) => { if (!cancelled) { setRows(json.rows ?? []); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   async function close(id: string) {
     if (!window.confirm("¿Cerrar este período? Después no se podrán agregar registros sin reabrirlo administrativamente.")) return;

@@ -23,15 +23,16 @@ export function DashboardClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setError(null);
+    let cancelled = false;
     fetch(`/api/dashboard/summary?year=${year}`)
       .then(async (r) => {
         const json = await r.json();
         if (!r.ok) throw new Error(json.error ?? "No fue posible cargar el tablero.");
         return json;
       })
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "No fue posible cargar el tablero."));
+      .then((json) => { if (!cancelled) { setData(json); setError(null); } })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "No fue posible cargar el tablero."); });
+    return () => { cancelled = true; };
   }, [year]);
 
   if (error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error} Verifica que PostgreSQL/Neon esté conectado y que las migraciones estén aplicadas.</div>;
